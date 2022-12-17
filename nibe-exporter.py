@@ -25,19 +25,28 @@ class CustomExporter:
 
         self.s = requests.Session()
 
+    def login(self) -> None:
+
         payload = {
-            "Email": username,
-            "Password": password,
+            "Email": self.username,
+            "Password": self.password,
         }
 
+        logging.info(f"Logging in to {url}")
         self.s.post(url + "/LogIn", data=payload)
 
-        logging.info(f"Logged in to {url}")
+        res = self.s.get(url)
 
-    def get_data(self, url, username, password) -> str:
-        logging.debug("Fetch the data")
+        if res.content.decode("utf-8").find('Log out') == -1:
+            logging.info(f"Failed to log in to {url}")
+            exit(1)
+        else:
+            logging.info(f"Logged in to {url}")
 
-        res = self.s.get(url + "/System/169626/Status/ServiceInfo")
+    def get_data(self) -> str:
+        logging.info("Fetch the data")
+
+        res = self.s.get(self.url + "/System/169626/Status/ServiceInfo")
 
         # the content of the page
         return res.content.decode("utf-8")
@@ -50,13 +59,12 @@ class CustomExporter:
 
         return metric_name
 
-    def create_metrics(self, html):
-        logging.debug("Create the metrics")
+    def create_metrics(self):
+        logging.info("Create the metrics")
 
         match = r"^[-+]?\d+[,.]?\d*"
 
-        soup = BeautifulSoup(self.get_data(url, username, password),
-                             features="html.parser")
+        soup = BeautifulSoup(self.get_data(), features="html.parser")
 
         for span in soup.find_all("span"):
             span.unwrap()
@@ -74,27 +82,31 @@ class CustomExporter:
                 else:
                     value = None
 
-                if (self.metric_dict.get(metric_name) is
-                        None) and (type(value) == int or type(value) == float):
+                if self.metric_dict.get(metric_name) is None:
                     self.metric_dict[metric_name] = Gauge(metric_name, "")
+
+                if type(value) == int or type(value) == float:
                     self.metric_dict[metric_name].set(value)
 
     def main(self):
+        frequency = 15
         exporter_port = int(environ.get("EXPORTER_PORT", "9877"))
         start_http_server(exporter_port)
         logging.info(f"Listening on {exporter_port}")
 
+        self.login()
+
         while True:
-            self.create_metrics(url)
-            logging.debug("Wait for 10 seconds")
-            time.sleep(15)
+            self.create_metrics()
+            logging.info(f"Wait for {frequency} seconds")
+            time.sleep(frequency)
 
 
 if __name__ == "__main__":
     url = "https://www.nibeuplink.com"
 
     if ("NIBE_USERNAME" not in environ) or ("NIBE_PASSWORD" not in environ):
-        print('You need to define the NIBE_USERNAME and NIBE_PASSWORD'
+        print('You need to define the NIBE_USERNAME and NIBE_PASSWORD '
               'environment variables.')
         exit(1)
 
