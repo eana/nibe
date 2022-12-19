@@ -25,30 +25,35 @@ class CustomExporter:
 
         self.s = requests.Session()
 
-    def login(self) -> None:
+    def check_login(self, html: str) -> bool:
+        if html.find('Log out') == -1:
+            logging.info(f"Failed to log in to {self.url}")
+            logged_in = False
+        else:
+            logged_in = True
 
+        return logged_in
+
+    def login(self) -> bool:
         payload = {
             "Email": self.username,
             "Password": self.password,
         }
 
-        logging.info(f"Logging in to {url}")
         self.s.post(url + "/LogIn", data=payload)
 
-        res = self.s.get(url)
+        res = self.s.get(self.url)
+        html = res.content.decode("utf-8")
 
-        if res.content.decode("utf-8").find('Log out') == -1:
-            logging.info(f"Failed to log in to {url}")
-            exit(1)
-        else:
-            logging.info(f"Logged in to {url}")
+        if not self.check_login(html):
+            logging.info(f"Failed to log in to {self.url}")
+            return False
+
+        return True
 
     def get_data(self) -> str:
-        logging.info("Fetch the data")
-
         res = self.s.get(self.url + "/System/169626/Status/ServiceInfo")
 
-        # the content of the page
         return res.content.decode("utf-8")
 
     def replace_chars(self, metric_name) -> str:
@@ -62,9 +67,16 @@ class CustomExporter:
     def create_metrics(self):
         logging.info("Create the metrics")
 
+        html = self.get_data()
         match = r"^[-+]?\d+[,.]?\d*"
 
-        soup = BeautifulSoup(self.get_data(), features="html.parser")
+        if not self.check_login(html):
+            logging.info(f"Not logged in. Logging in to {self.url}")
+            if not self.login():
+                print("Couldn't login. Exiting.")
+                exit(1)
+
+        soup = BeautifulSoup(html, features="html.parser")
 
         for span in soup.find_all("span"):
             span.unwrap()
@@ -94,7 +106,10 @@ class CustomExporter:
         start_http_server(exporter_port)
         logging.info(f"Listening on {exporter_port}")
 
-        self.login()
+        logging.info(f"Logging in to {self.url}")
+        if not self.login():
+            print("Couldn't login. Exiting.")
+            exit(1)
 
         while True:
             self.create_metrics()
