@@ -7,4 +7,4 @@ COPY nibe-exporter.py requirements.txt /nibe-exporter/
 RUN set -xe && \
     pip install -r requirements.txt
 
-ENTRYPOINT /nibe-exporter/nibe-exporter.py
+ENTRYPOINT . /nibe-exporter/.env && /nibe-exporter/nibe-exporter.py

@@ -21,6 +21,15 @@ To be able to connect the heat pump you will need its serial number and a connec
 3. The identification numbers displayed on the screen can be used to identify
    the system in nibe uplink for 60 minutes, or until they have been used once.
 
+## Secrets
+
+Create a file `.env` that looks like this:
+
+```shell
+export NIBE_USERNAME='username@example.com'
+export NIBE_PASSWORD='Ve3ryStr0ngPa$4w0rd!'
+```
+
 ## How to use this
 
 This script can be used as a standalone script or as a docker container.
@@ -38,7 +47,7 @@ NIBE_USERNAME='your username' NIBE_PASSWORD='your password' ./nibe_exporter.py
 
 ```shell
 docker build -t nibe-exporter https://github.com/eana/nibe-exporter.git
-docker run -it --name nibe_exporter --rm -e NIBE_USERNAME='your username' -e NIBE_PASSWORD='your password' nibe_exporter
+docker run -it --name nibe_exporter --rm -v /path/to/.env:/nibe-exporter/.env nibe-exporter
 ```
 
 ```yaml
